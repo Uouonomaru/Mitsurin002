@@ -1,70 +1,133 @@
 package com.originalgames.mitsurin.xml;
 
+import com.originalgames.mitsurin.log.ErrorWriter;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 
-public class XMLController {
-    private DocumentBuilderFactory dbFactory;
-    private DocumentBuilder dBuilder;
+public abstract class XMLController {
+    // file path
+    private String filepath;
+    // DocumentBuilderFactory
+    private static final DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
+    // DocumentBuilder
+    private DocumentBuilder documentBuilder;
+    // Document
     private Document document;
-    private Element rootElement;
+    // root node
+    private Element root;
+    // NodeList immediately below the root
     private NodeList nodeList;
 
-    // コンストラクタ
-    public XMLController(String xmlFilePath) {
+    // error
+    private ErrorWriter errorWriter;
+
+    /**
+     * scheme and calling of XML file
+     * <xml version="1.0" encoding="UTF-8">
+     *     <root>                           top node (depth : 0) : root
+     *         <node id="0">                depth 1 : node, node id : from "0"
+     *             <element></element>      depth 2 : element
+     *             ...
+     *         </node>
+     *         <node id="1">
+     *             <element></element>
+     *             ...
+     *         </node>
+     *         ...
+     *     </root>
+     */
+
+    XMLController(String filepath) {
+        // set file path
+        this.filepath = filepath;
+        // error writer
+        errorWriter = new ErrorWriter(this);
+
         try {
-            dbFactory = DocumentBuilderFactory.newInstance();              // DocumentBuilderFactoryインスタンスを生成
-            dBuilder = dbFactory.newDocumentBuilder();                     // DocumentBuilderFactoryよりDocumentBuilderインスタンスを生成
-            document = dBuilder.parse(Paths.get(xmlFilePath).toFile());    // 指定ファイルパスよりファイルのDocument作成
-            rootElement = document.getDocumentElement();                   // Documentのルート内要素を取得
-        }catch (Exception e) {
-            e.printStackTrace();
+            // create new DocumentBuilder
+            documentBuilder = XMLController.documentBuilderFactory.newDocumentBuilder();
+            // create new Document from filepath(xml file)
+            document = documentBuilder.parse(Paths.get(filepath).toFile());
+        }catch (ParserConfigurationException e) {
+            errorWriter.appendErrorLog(String.valueOf(e));
+            errorWriter.appendErrorLog("force quit");
+            System.exit(1);
+        }catch (SAXException e) {
+            errorWriter.appendErrorLog(String.valueOf(e));
+            errorWriter.appendErrorLog("force quit");
+            System.exit(1);
+        }catch (IOException e) {
+            errorWriter.appendErrorLog(String.valueOf(e));
+            errorWriter.appendErrorLog("force quit");
+            System.exit(1);
         }
+
+        // get root node from Document
+        root = document.getDocumentElement();
+        // get NodeList from root node
+        nodeList = root.getChildNodes();
     }
 
-    // 子要素のうち，指定された要素をArrayListとして取得
-    public ArrayList<Element> getNodeList(String elementName) {
-        nodeList = rootElement.getChildNodes();                         // ルート内の子要素をリストで取得
-        ArrayList<Element> nodes = new ArrayList<>();                   // ArrayListを初期化
-        for(int i = 0; i < nodeList.getLength(); i++) {
-            // 各子要素のノードタイプがELEMENT_NODEである場合(ここまだ若干理解不足です...)
-            if(nodeList.item(i).getNodeType() == Node.ELEMENT_NODE) {
-                Element node = (Element)nodeList.item(i);               // Element型で指定インデックスの要素を取得
-                // 指定要素が見つかった場合
-                if(node.getNodeName().equals(elementName)) {
-                    nodes.add(node);
-                }
-            }
+    // reconstruct this instance
+    public XMLController reConstruct() {
+        try {
+            // update Document
+            document = documentBuilder.parse(Paths.get(filepath).toFile());
+        }catch (SAXException e) {
+            errorWriter.appendErrorLog(String.valueOf(e));
+            return this;
+        }catch (IOException e) {
+            errorWriter.appendErrorLog(String.valueOf(e));
+            return this;
         }
 
-        return nodes;
+        // update root node from Document
+        root = document.getDocumentElement();
+        // update NodeList from root node
+        nodeList = root.getChildNodes();
+
+        return this;
     }
 
-    // 指定要素内の指定した内部要素を取得する
-    public ArrayList<String> getAttribute(String elementName, String innerElementName) {
-        ArrayList<Element> nodes = this.getNodeList(elementName);                   // 指定要素のノードリストを取得
-        ArrayList<String> attributes = new ArrayList<>();
-        for(int i = 0; i < nodes.size(); i++) {
-            // 要素の内部要素リストを取得
-            NodeList innerNodeList = nodes.get(i).getChildNodes();
-            for(int j = 0; j < innerNodeList.getLength(); j++) {
-                if(innerNodeList.item(j).getNodeType() == Node.ELEMENT_NODE) {
-                    Element innerNode = (Element) innerNodeList.item(j);
-                    // 探索している要素があればその値を取得する
-                    if (innerNode.getNodeName().equals(innerElementName)) {
-                        attributes.add(innerNode.getTextContent());
-                    }
-                }
-            }
-        }
+    // getter
+    public String getFilepath() {
+        return filepath;
+    }
 
-        return attributes;
+    protected DocumentBuilder getDocumentBuilder() {
+        return documentBuilder;
+    }
+
+    protected Document getDocument() {
+        return document;
+    }
+
+    protected Element getRoot() {
+        return root;
+    }
+
+    protected NodeList getNodeList() {
+        return nodeList;
+    }
+
+    // setter
+    protected void setDocument(Document document) {
+        this.document = document;
+    }
+
+    protected void setRoot(Element root) {
+        this.root = root;
+    }
+
+    protected void setNodeList(NodeList nodeList) {
+        this.nodeList = nodeList;
     }
 }
